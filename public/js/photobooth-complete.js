@@ -12,7 +12,8 @@ class PhotoBoothApp {
         this.selectedColor = 'brown';
         this.frameType = 'frame4';
         this.currentStripId = null;
-        this.currentStripUrl = null; // TAMBAHAN: URL strip dari server
+        this.currentStripUrl = null;
+        this.retakingIndex = null; // NEW: Index foto yang sedang di-retake
 
         this.init();
     }
@@ -100,8 +101,9 @@ class PhotoBoothApp {
             this.downloadPhotoStrip();
         });
 
+        // NEW: Retake button - buka modal pemilihan foto
         document.getElementById('retakeBtn').addEventListener('click', () => {
-            this.retakePhotos();
+            this.openRetakeSelection();
         });
 
         // Save button event listener
@@ -112,7 +114,7 @@ class PhotoBoothApp {
             });
         }
 
-        // Color selector - UPDATE: Compose ulang saat ganti warna
+        // Color selector - compose ulang saat ganti warna
         const colorButtons = document.querySelectorAll('.color-btn');
         colorButtons.forEach(btn => {
             btn.addEventListener('click', async (e) => {
@@ -134,16 +136,41 @@ class PhotoBoothApp {
     async startPhotoSession() {
         if (this.isCapturing) return;
 
-        this.photos = [];
+        // Jika bukan retake, reset semua
+        if (this.retakingIndex === null) {
+            this.photos = [];
+            this.currentStripId = null;
+            this.currentStripUrl = null;
+        }
+
         this.isCapturing = true;
-        this.currentStripId = null;
-        this.currentStripUrl = null;
         this.updateThumbnails();
         this.updateProgress();
 
         const btn = document.getElementById('startPhotoBtn');
         btn.disabled = true;
 
+        // Jika retake, hanya ambil 1 foto
+        if (this.retakingIndex !== null) {
+            await this.capturePhoto(this.retakingIndex + 1);
+            
+            this.isCapturing = false;
+            btn.disabled = false;
+            
+            // Update thumbnails dan kembali ke review
+            this.updateThumbnails();
+            this.updateProgress();
+            this.closeRetakeModal();
+            this.showReviewModal();
+            await this.composeAndSaveStrip();
+            
+            // Reset retaking index
+            this.retakingIndex = null;
+            btn.querySelector('.btn-text').textContent = 'Mulai Foto';
+            return;
+        }
+
+        // Proses normal: ambil semua foto
         for (let i = 0; i < this.currentPhotoCount; i++) {
             await this.capturePhoto(i + 1);
             await this.wait(1000);
@@ -155,7 +182,7 @@ class PhotoBoothApp {
         // Tampilkan modal review dengan preview lokal
         this.showReviewModal();
         
-        // PERBAIKAN: Compose strip SETELAH modal ditampilkan
+        // Compose strip SETELAH modal ditampilkan
         await this.composeAndSaveStrip();
     }
 
@@ -177,7 +204,13 @@ class PhotoBoothApp {
         this.ctx.drawImage(this.video, 0, 0);
         
         const photoData = this.canvas.toDataURL('image/png');
-        this.photos.push(photoData);
+        
+        // Simpan foto: replace jika retake, push jika baru
+        if (this.retakingIndex !== null) {
+            this.photos[this.retakingIndex] = photoData;
+        } else {
+            this.photos.push(photoData);
+        }
 
         this.updateThumbnails();
         this.updateProgress();
@@ -229,7 +262,63 @@ class PhotoBoothApp {
         fill.style.width = `${(this.photos.length / this.currentPhotoCount) * 100}%`;
     }
 
-    // PERBAIKAN: Compose strip dengan warna frame yang benar
+    // NEW: Buka modal pemilihan foto untuk retake
+    openRetakeSelection() {
+        const retakeModal = document.getElementById('retakeModal');
+        const retakePhotoGrid = document.getElementById('retakePhotoGrid');
+        
+        retakePhotoGrid.innerHTML = '';
+        
+        this.photos.forEach((photo, index) => {
+            const item = document.createElement('div');
+            item.className = 'retake-photo-item';
+            item.innerHTML = `
+                <img src="${photo}" alt="Photo ${index + 1}">
+                <div class="retake-photo-label">Foto ${index + 1}</div>
+                <button class="retake-photo-button" data-index="${index}">
+                    Ambil Ulang
+                </button>
+            `;
+            
+            // Event listener untuk tombol retake
+            const btn = item.querySelector('.retake-photo-button');
+            btn.addEventListener('click', () => {
+                this.retakePhoto(index);
+            });
+            
+            retakePhotoGrid.appendChild(item);
+        });
+        
+        retakeModal.style.display = 'flex';
+    }
+
+    // NEW: Retake foto tertentu
+    retakePhoto(index) {
+        this.retakingIndex = index;
+        this.closeRetakeModal();
+        this.closeReviewModal();
+        
+        // Update button text
+        const btn = document.getElementById('startPhotoBtn');
+        btn.querySelector('.btn-text').textContent = `Ambil Ulang Foto ${index + 1}`;
+        
+        // Scroll ke kamera
+        document.querySelector('.camera-container').scrollIntoView({ behavior: 'smooth' });
+        
+        // Auto start after 1 second
+        setTimeout(() => {
+            this.startPhotoSession();
+        }, 1000);
+    }
+
+    // NEW: Tutup modal retake
+    closeRetakeModal() {
+        const retakeModal = document.getElementById('retakeModal');
+        if (retakeModal) {
+            retakeModal.style.display = 'none';
+        }
+    }
+
     async composeAndSaveStrip() {
         if (this.photos.length === 0) return;
 
@@ -255,7 +344,7 @@ class PhotoBoothApp {
                     'X-CSRF-TOKEN': window.csrfToken
                 },
                 body: JSON.stringify({
-                    photos: [finalImageData], // Kirim canvas final yang sudah jadi
+                    photos: [finalImageData],
                     frame_id: null,
                     photo_count: this.currentPhotoCount
                 })
@@ -295,13 +384,12 @@ class PhotoBoothApp {
         }
     }
 
-    // TAMBAHAN: Buat canvas final dengan frame
     async createFinalCanvas() {
         const tempCanvas = document.createElement('canvas');
         const ctx = tempCanvas.getContext('2d');
 
         // Set canvas dimensions based on photo count
-        const canvasWidth = 800; // Resolusi lebih tinggi
+        const canvasWidth = 800;
         let canvasHeight;
         
         switch(this.currentPhotoCount) {
@@ -399,7 +487,7 @@ class PhotoBoothApp {
                 // Redirect ke halaman profil
                 window.location.href = '/profile';
             } else {
-                alert('' + result.message);
+                alert(result.message);
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = originalText;
             }
@@ -487,28 +575,12 @@ class PhotoBoothApp {
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     }
 
-    // PERBAIKAN: Download dari server, bukan dari canvas lokal
     async downloadPhotoStrip() {
         if (this.currentStripId) {
-            // Download dari server (sudah termasuk frame)
+            // Download dari server
             window.location.href = `/photobooth/download/${this.currentStripId}`;
         } else {
             alert('Photo strip belum siap. Silakan tunggu sebentar...');
-        }
-    }
-
-    retakePhotos() {
-        this.closeReviewModal();
-        this.photos = [];
-        this.currentStripId = null;
-        this.currentStripUrl = null;
-        this.updateThumbnails();
-        this.updateProgress();
-        
-        // Sembunyikan tombol save
-        const saveBtn = document.getElementById('saveBtn');
-        if (saveBtn) {
-            saveBtn.style.display = 'none';
         }
     }
 
@@ -535,6 +607,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // Close login modal function
 function closeLoginModal() {
     const modal = document.getElementById('loginModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Close retake modal function (untuk onclick di HTML)
+function closeRetakeModal() {
+    const modal = document.getElementById('retakeModal');
     if (modal) {
         modal.style.display = 'none';
     }

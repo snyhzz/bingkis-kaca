@@ -139,7 +139,7 @@
                             Download
                         </button>
                         <button type="button" id="retakeBtn" class="btn-review btn-retake">
-                            Retake
+                            Retake Foto
                         </button>
                     </div>
 
@@ -148,6 +148,24 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Retake Selection Modal -->
+<div id="retakeModal" class="retake-modal" style="display: none;">
+    <div class="retake-content">
+        <div class="retake-header">
+            <h2 class="retake-title">Pilih Foto yang Ingin Diambil Ulang</h2>
+            <button class="retake-close" onclick="closeRetakeModal()">&times;</button>
+        </div>
+        
+        <div id="retakePhotoGrid" class="retake-photo-grid">
+            <!-- Photos will be dynamically added here -->
+        </div>
+        
+        <div class="retake-footer">
+            <button type="button" class="btn-review btn-back" onclick="closeRetakeModal()">Batal</button>
         </div>
     </div>
 </div>
@@ -478,16 +496,16 @@
     align-items: center;
     justify-content: center;
     padding: 20px;
+    overflow-y: auto;
 }
 
 .review-content {
     background: #CBA991;
     border-radius: 20px;
     padding: 2.5rem;
-    max-width: 1000px;
+    max-width: 1100px;
     width: 100%;
-    max-height: 90vh;
-    overflow-y: auto;
+    margin: auto;
 }
 
 .review-title {
@@ -502,13 +520,13 @@
     display: grid;
     grid-template-columns: auto 1fr;
     gap: 2.5rem;
-    align-items: stretch;
+    align-items: center;
 }
 
 /* Left Side - Canvas Preview */
 .review-left {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
 }
 
@@ -544,11 +562,14 @@
 
 .strip-canvas {
     display: block;
-    max-height: 600px;
-    max-width: 100%;
-    height: auto;
+    /* Ukuran disesuaikan dengan frame yang diunggah */
     width: auto;
+    height: auto;
+    max-width: 100%;
+    /* Tinggi maksimal agar tidak terlalu besar di layar */
+    max-height: 70vh;
     border-radius: 8px;
+    object-fit: contain;
 }
 
 /* Right Side - Controls */
@@ -642,7 +663,6 @@
     box-shadow: 0 6px 16px rgba(108, 117, 125, 0.4);
 }
 
-/* TOMBOL SIMPAN - STYLE BARU */
 .btn-save {
     background: #28a745;
     color: white;
@@ -661,7 +681,6 @@
     transform: none;
 }
 
-/* TOMBOL LOGIN */
 .btn-login {
     background: #6c757d;
     color: white;
@@ -712,6 +731,130 @@
     width: 110px;
     height: auto;
     object-fit: contain;
+}
+
+/* Retake Modal */
+.retake-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.retake-content {
+    background: #CBA991;
+    border-radius: 20px;
+    padding: 2rem;
+    max-width: 900px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.retake-header {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.retake-title {
+    text-align: center;
+    color: #522504;
+    font-size: 1.8rem;
+    font-weight: 700;
+    padding-right: 40px;
+}
+
+.retake-close {
+    position: absolute;
+    top: -10px;
+    right: 0;
+    background: white;
+    border: 2px solid #522504;
+    color: #522504;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.retake-close:hover {
+    background: #522504;
+    color: white;
+    transform: rotate(90deg);
+}
+
+.retake-photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.retake-photo-item {
+    background: white;
+    border-radius: 15px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.retake-photo-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+}
+
+.retake-photo-item img {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    margin-bottom: 0.75rem;
+}
+
+.retake-photo-label {
+    text-align: center;
+    color: #522504;
+    font-weight: 600;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.retake-photo-button {
+    width: 100%;
+    padding: 0.75rem;
+    background: #522504;
+    color: white;
+    border: none;
+    border-radius: 25px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.retake-photo-button:hover {
+    background: #6b2f05;
+    transform: scale(1.05);
+}
+
+.retake-footer {
+    display: flex;
+    justify-content: center;
+    padding-top: 1rem;
+    border-top: 2px solid rgba(255,255,255,0.3);
 }
 
 /* Login Modal */
@@ -796,7 +939,7 @@
     }
 
     .strip-canvas {
-        max-height: 500px;
+        max-height: 60vh;
     }
 
     .character-image,
@@ -806,6 +949,10 @@
 
     .review-right {
         min-width: auto;
+    }
+
+    .retake-photo-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
 
@@ -824,12 +971,20 @@
     }
 
     .strip-canvas {
-        max-height: 400px;
+        max-height: 50vh;
     }
 
     .character-image,
     .character-image-right {
         width: 60px;
+    }
+
+    .retake-photo-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .retake-title {
+        font-size: 1.3rem;
     }
 }
 </style>
@@ -857,10 +1012,10 @@ window.framesData = {
     }
 };
 
-// Variable untuk menyimpan strip ID setelah dibuat
+
 let currentStripId = null;
 
-// Event listener untuk tombol simpan
+
 document.addEventListener('DOMContentLoaded', function() {
     const saveBtn = document.getElementById('saveBtn');
     if (saveBtn) {
@@ -868,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Fungsi untuk menyimpan strip ke profil
+
 function saveStripToProfile() {
     if (!currentStripId) {
         alert('Strip ID tidak ditemukan!');
@@ -878,7 +1033,7 @@ function saveStripToProfile() {
     const saveBtn = document.getElementById('saveBtn');
     const originalText = saveBtn.innerHTML;
     
-    // Disable button dan ubah text
+    
     saveBtn.disabled = true;
     saveBtn.innerHTML = 'Menyimpan...';
 
@@ -892,11 +1047,10 @@ function saveStripToProfile() {
     .then(response => response.json())
     .then(result => {
         if (result.success) {
-            alert('' + result.message);
-            // Redirect ke halaman profil
+            alert(result.message);
             window.location.href = '/profile';
         } else {
-            alert('' + result.message);
+            alert(result.message);
             saveBtn.disabled = false;
             saveBtn.innerHTML = originalText;
         }
@@ -909,13 +1063,21 @@ function saveStripToProfile() {
     });
 }
 
-// Fungsi untuk menampilkan tombol save setelah strip dibuat
+
 function showSaveButton(stripId) {
     currentStripId = stripId;
     const saveBtn = document.getElementById('saveBtn');
     if (saveBtn && window.isAuthenticated) {
         saveBtn.style.display = 'block';
     }
+}
+
+function closeRetakeModal() {
+    document.getElementById('retakeModal').style.display = 'none';
+}
+
+function closeLoginModal() {
+    document.getElementById('loginModal').style.display = 'none';
 }
 </script>
 <script src="{{ asset('js/photobooth-complete.js') }}"></script>

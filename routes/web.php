@@ -28,6 +28,7 @@ Route::get('/help', [HomeController::class, 'help'])->name('help');
 Route::get('/photobooth', [PhotoboothController::class, 'index'])->name('photobooth');
 Route::post('/photobooth/upload', [PhotoboothController::class, 'uploadPhoto'])->name('photobooth.upload');
 Route::post('/photobooth/compose', [PhotoboothController::class, 'composeStrip'])->name('photobooth.compose');
+Route::post('/photobooth/save/{id}', [PhotoboothController::class, 'saveStrip'])->name('photobooth.save');  // TAMBAHKAN INI
 Route::get('/photobooth/download/{id}', [PhotoboothController::class, 'download'])->name('photobooth.download');
 
 /*
@@ -79,6 +80,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 */
 
 require __DIR__.'/auth.php';
+
 
 // use Illuminate\Support\Facades\RateLimiter;
 

@@ -11,6 +11,8 @@ class PhotoBoothApp {
         this.isCapturing = false;
         this.selectedColor = 'brown';
         this.frameType = 'frame4';
+        this.currentStripId = null;
+        this.currentStripUrl = null; // TAMBAHAN: URL strip dari server
 
         this.init();
     }
@@ -102,14 +104,29 @@ class PhotoBoothApp {
             this.retakePhotos();
         });
 
-        // Color selector
+        // Save button event listener
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                this.saveStripToProfile();
+            });
+        }
+
+        // Color selector - UPDATE: Compose ulang saat ganti warna
         const colorButtons = document.querySelectorAll('.color-btn');
         colorButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => {
+            btn.addEventListener('click', async (e) => {
                 colorButtons.forEach(b => b.classList.remove('active'));
                 e.target.classList.add('active');
                 this.selectedColor = e.target.dataset.color;
-                this.updateStripPreview();
+                
+                // Update preview lokal
+                await this.updateStripPreview();
+                
+                // Compose ulang di server dengan warna baru
+                if (this.photos.length > 0) {
+                    await this.composeAndSaveStrip();
+                }
             });
         });
     }
@@ -119,6 +136,8 @@ class PhotoBoothApp {
 
         this.photos = [];
         this.isCapturing = true;
+        this.currentStripId = null;
+        this.currentStripUrl = null;
         this.updateThumbnails();
         this.updateProgress();
 
@@ -132,7 +151,12 @@ class PhotoBoothApp {
 
         this.isCapturing = false;
         btn.disabled = false;
+        
+        // Tampilkan modal review dengan preview lokal
         this.showReviewModal();
+        
+        // PERBAIKAN: Compose strip SETELAH modal ditampilkan
+        await this.composeAndSaveStrip();
     }
 
     async capturePhoto(photoNumber) {
@@ -203,6 +227,188 @@ class PhotoBoothApp {
         
         text.textContent = `${this.photos.length}/${this.currentPhotoCount} foto`;
         fill.style.width = `${(this.photos.length / this.currentPhotoCount) * 100}%`;
+    }
+
+    // PERBAIKAN: Compose strip dengan warna frame yang benar
+    async composeAndSaveStrip() {
+        if (this.photos.length === 0) return;
+
+        try {
+            // Tampilkan loading
+            const downloadBtn = document.getElementById('downloadBtn');
+            const saveBtn = document.getElementById('saveBtn');
+            const originalDownloadText = downloadBtn ? downloadBtn.innerHTML : '';
+            
+            if (downloadBtn) {
+                downloadBtn.disabled = true;
+                downloadBtn.innerHTML = 'Processing...';
+            }
+
+            // Buat canvas dengan frame yang sudah dipilih
+            const finalCanvas = await this.createFinalCanvas();
+            const finalImageData = finalCanvas.toDataURL('image/png');
+
+            const response = await fetch('/photobooth/compose', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': window.csrfToken
+                },
+                body: JSON.stringify({
+                    photos: [finalImageData], // Kirim canvas final yang sudah jadi
+                    frame_id: null,
+                    photo_count: this.currentPhotoCount
+                })
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                this.currentStripId = result.strip_id;
+                this.currentStripUrl = result.strip_url;
+                
+                console.log('✅ Strip created:', {
+                    id: this.currentStripId,
+                    url: this.currentStripUrl
+                });
+                
+                // Tampilkan tombol save jika user sudah login
+                this.showSaveButton();
+                
+                // Enable download button
+                if (downloadBtn) {
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = originalDownloadText || 'Download';
+                }
+            } else {
+                console.error('Failed to compose strip:', result.error);
+                alert('Gagal membuat photo strip: ' + (result.error || 'Unknown error'));
+                
+                if (downloadBtn) {
+                    downloadBtn.disabled = false;
+                    downloadBtn.innerHTML = originalDownloadText || 'Download';
+                }
+            }
+        } catch (error) {
+            console.error('Error composing strip:', error);
+            alert('Terjadi kesalahan saat membuat photo strip.');
+        }
+    }
+
+    // TAMBAHAN: Buat canvas final dengan frame
+    async createFinalCanvas() {
+        const tempCanvas = document.createElement('canvas');
+        const ctx = tempCanvas.getContext('2d');
+
+        // Set canvas dimensions based on photo count
+        const canvasWidth = 800; // Resolusi lebih tinggi
+        let canvasHeight;
+        
+        switch(this.currentPhotoCount) {
+            case 2: canvasHeight = 1600; break;
+            case 3: canvasHeight = 2000; break;
+            case 4: canvasHeight = 2400; break;
+            default: canvasHeight = 2400;
+        }
+
+        tempCanvas.width = canvasWidth;
+        tempCanvas.height = canvasHeight;
+
+        // Get frame color
+        let frameColor;
+        switch(this.selectedColor) {
+            case 'brown': frameColor = '#6B4423'; break;
+            case 'cream': frameColor = '#CBA991'; break;
+            case 'white': frameColor = '#F5F5F5'; break;
+            default: frameColor = '#6B4423';
+        }
+
+        // Draw frame background
+        ctx.fillStyle = frameColor;
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+        // Calculate dimensions for photo slots
+        const padding = 60;
+        const photoGap = 30;
+        const photoWidth = canvasWidth - (padding * 2);
+        const availableHeight = canvasHeight - (padding * 2) - (photoGap * (this.currentPhotoCount - 1));
+        const photoHeight = availableHeight / this.currentPhotoCount;
+
+        // Draw photos with white borders
+        for (let i = 0; i < this.photos.length; i++) {
+            const img = await this.loadImage(this.photos[i]);
+            
+            const xPos = padding;
+            const yPos = padding + (i * (photoHeight + photoGap));
+            
+            // Draw white background/border (10px border)
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(xPos - 10, yPos - 10, photoWidth + 20, photoHeight + 20);
+            
+            // Draw photo
+            ctx.drawImage(img, xPos, yPos, photoWidth, photoHeight);
+        }
+
+        // Add frame border effect
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+        ctx.lineWidth = 8;
+        ctx.strokeRect(4, 4, canvasWidth - 8, canvasHeight - 8);
+
+        return tempCanvas;
+    }
+
+    showSaveButton() {
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn && window.isAuthenticated && this.currentStripId) {
+            saveBtn.style.display = 'block';
+            saveBtn.disabled = false;
+        }
+    }
+
+    async saveStripToProfile() {
+        if (!this.currentStripId) {
+            alert('Strip ID tidak ditemukan! Silakan tunggu hingga proses selesai.');
+            return;
+        }
+
+        if (!window.isAuthenticated) {
+            alert('Anda harus login terlebih dahulu!');
+            return;
+        }
+
+        const saveBtn = document.getElementById('saveBtn');
+        const originalText = saveBtn.innerHTML;
+        
+        // Disable button dan ubah text
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '⏳ Menyimpan...';
+
+        try {
+            const response = await fetch(`/photobooth/save/${this.currentStripId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': window.csrfToken
+                }
+            });
+
+            const result = await response.json();
+            
+            if (result.success) {
+                alert('✅ ' + result.message);
+                // Redirect ke halaman profil
+                window.location.href = '/profile';
+            } else {
+                alert('' + result.message);
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalText;
+            }
+        } catch (error) {
+            console.error('Error saving strip:', error);
+            alert('❌ Terjadi kesalahan saat menyimpan.');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
     }
 
     showReviewModal() {
@@ -281,21 +487,29 @@ class PhotoBoothApp {
         ctx.fillRect(0, 0, canvasWidth, canvasHeight);
     }
 
+    // PERBAIKAN: Download dari server, bukan dari canvas lokal
     async downloadPhotoStrip() {
-        const canvas = document.getElementById('stripCanvas');
-        const link = document.createElement('a');
-        const timestamp = new Date().getTime();
-        
-        link.download = `bingkis-kaca-photostrip-${timestamp}.png`;
-        link.href = canvas.toDataURL('image/png');
-        link.click();
+        if (this.currentStripId) {
+            // Download dari server (sudah termasuk frame)
+            window.location.href = `/photobooth/download/${this.currentStripId}`;
+        } else {
+            alert('Photo strip belum siap. Silakan tunggu sebentar...');
+        }
     }
 
     retakePhotos() {
         this.closeReviewModal();
         this.photos = [];
+        this.currentStripId = null;
+        this.currentStripUrl = null;
         this.updateThumbnails();
         this.updateProgress();
+        
+        // Sembunyikan tombol save
+        const saveBtn = document.getElementById('saveBtn');
+        if (saveBtn) {
+            saveBtn.style.display = 'none';
+        }
     }
 
     loadImage(src) {
@@ -320,5 +534,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Close login modal function
 function closeLoginModal() {
-    document.getElementById('loginModal').style.display = 'none';
+    const modal = document.getElementById('loginModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }

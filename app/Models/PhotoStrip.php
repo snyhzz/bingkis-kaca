@@ -17,11 +17,13 @@ class PhotoStrip extends Model
         'final_image_path',
         'photo_count',
         'ip_address',
+        'is_saved',  // TAMBAHKAN INI
     ];
 
     protected $casts = [
         'photo_data' => 'array',
         'photo_count' => 'integer',
+        'is_saved' => 'boolean',  // TAMBAHKAN INI
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

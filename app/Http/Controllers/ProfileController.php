@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\PhotoStrip;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -11,12 +12,14 @@ use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
-    // HAPUS constructor middleware - sudah ditangani di routes
-
-    public function index()
+    public function index(): View
     {
-        $user = auth()->user();
-        $photoStrips = $user->photoStrips()
+        // Ambil user yang sedang login
+        $user = Auth::user();
+        
+        // Ambil photo strips yang disimpan oleh user
+        $photoStrips = PhotoStrip::where('user_id', $user->id)
+            ->where('is_saved', true)  // Hanya yang disimpan
             ->with('frame')
             ->orderBy('created_at', 'desc')
             ->paginate(12);
@@ -62,12 +65,15 @@ class ProfileController extends Controller
         return Redirect::to('/');
     }
 
-    public function deleteStrip($id)
+    public function deleteStrip($id): RedirectResponse
     {
-        $strip = auth()->user()->photoStrips()->findOrFail($id);
+        $strip = PhotoStrip::where('user_id', Auth::id())
+            ->where('id', $id)
+            ->where('is_saved', true)  // Tambahkan filter ini untuk keamanan
+            ->firstOrFail();
+
         $strip->delete();
 
-        return redirect()->route('profile.index')
-            ->with('success', 'Photo strip deleted successfully');
+        return Redirect::route('profile.index')->with('status', 'Photo strip berhasil dihapus!');
     }
 }

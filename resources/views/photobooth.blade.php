@@ -123,6 +123,18 @@
                         <button type="button" id="backBtn" class="btn-review btn-back">
                             Back
                         </button>
+                        
+                        {{-- TOMBOL SIMPAN - HANYA MUNCUL JIKA SUDAH LOGIN --}}
+                        @auth
+                        <button type="button" id="saveBtn" class="btn-review btn-save" style="display: none;">
+                            Simpan ke Profil
+                        </button>
+                        @else
+                        <a href="{{ route('login') }}" class="btn-review btn-login">
+                            Login untuk Menyimpan
+                        </a>
+                        @endauth
+                        
                         <button type="button" id="downloadBtn" class="btn-review btn-download">
                             Download
                         </button>
@@ -613,6 +625,9 @@
     transition: all 0.3s ease;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    text-align: center;
+    text-decoration: none;
+    display: block;
 }
 
 .btn-back {
@@ -625,6 +640,39 @@
     background: #5a6268;
     transform: translateY(-2px);
     box-shadow: 0 6px 16px rgba(108, 117, 125, 0.4);
+}
+
+/* TOMBOL SIMPAN - STYLE BARU */
+.btn-save {
+    background: #28a745;
+    color: white;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.btn-save:hover {
+    background: #218838;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4);
+}
+
+.btn-save:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* TOMBOL LOGIN */
+.btn-login {
+    background: #6c757d;
+    color: white;
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+}
+
+.btn-login:hover {
+    background: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(108, 117, 125, 0.4);
+    color: white;
 }
 
 .btn-download {
@@ -790,6 +838,7 @@
 @push('scripts')
 <script>
 window.csrfToken = '{{ csrf_token() }}';
+window.isAuthenticated = {{ auth()->check() ? 'true' : 'false' }};
 window.framesData = {
     frame2: {
         brown: '{{ asset("images/frames/frame2_brown.png") }}',
@@ -807,6 +856,67 @@ window.framesData = {
         white: '{{ asset("images/frames/frame4_white.png") }}'
     }
 };
+
+// Variable untuk menyimpan strip ID setelah dibuat
+let currentStripId = null;
+
+// Event listener untuk tombol simpan
+document.addEventListener('DOMContentLoaded', function() {
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', saveStripToProfile);
+    }
+});
+
+// Fungsi untuk menyimpan strip ke profil
+function saveStripToProfile() {
+    if (!currentStripId) {
+        alert('Strip ID tidak ditemukan!');
+        return;
+    }
+
+    const saveBtn = document.getElementById('saveBtn');
+    const originalText = saveBtn.innerHTML;
+    
+    // Disable button dan ubah text
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = 'Menyimpan...';
+
+    fetch(`/photobooth/save/${currentStripId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': window.csrfToken
+        }
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('' + result.message);
+            // Redirect ke halaman profil
+            window.location.href = '/profile';
+        } else {
+            alert('' + result.message);
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Terjadi kesalahan saat menyimpan.');
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
+    });
+}
+
+// Fungsi untuk menampilkan tombol save setelah strip dibuat
+function showSaveButton(stripId) {
+    currentStripId = stripId;
+    const saveBtn = document.getElementById('saveBtn');
+    if (saveBtn && window.isAuthenticated) {
+        saveBtn.style.display = 'block';
+    }
+}
 </script>
 <script src="{{ asset('js/photobooth-complete.js') }}"></script>
 @endpush

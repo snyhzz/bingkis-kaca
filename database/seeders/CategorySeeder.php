@@ -2,14 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\Category;
 use Illuminate\Database\Seeder;
+use App\Models\Category;
 
 class CategorySeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $categories = [
@@ -20,39 +17,33 @@ class CategorySeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'name' => 'Minimalis',
-                'slug' => 'minimalis',
-                'description' => 'Simple and elegant frames with clean design',
+                'name' => 'Classic',
+                'slug' => 'classic',
+                'description' => 'Timeless and elegant frames for any occasion',
                 'is_active' => true,
             ],
             [
-                'name' => 'Formal',
-                'slug' => 'formal',
-                'description' => 'Professional and sophisticated frames for formal occasions',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Couple',
-                'slug' => 'couple',
-                'description' => 'Romantic frames designed for couples',
+                'name' => 'Wedding',
+                'slug' => 'wedding',
+                'description' => 'Elegant frames perfect for wedding celebrations',
                 'is_active' => true,
             ],
             [
                 'name' => 'Birthday',
                 'slug' => 'birthday',
-                'description' => 'Festive frames for birthday celebrations',
+                'description' => 'Fun and colorful frames for birthday parties',
+                'is_active' => true,
+            ],
+            [
+                'name' => 'Graduation',
+                'slug' => 'graduation',
+                'description' => 'Frames to celebrate academic achievements',
                 'is_active' => true,
             ],
             [
                 'name' => 'Holiday',
                 'slug' => 'holiday',
-                'description' => 'Seasonal and holiday-themed frames',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Vintage',
-                'slug' => 'vintage',
-                'description' => 'Classic retro-style frames',
+                'description' => 'Festive frames for special holidays and celebrations',
                 'is_active' => true,
             ],
         ];
@@ -60,5 +51,7 @@ class CategorySeeder extends Seeder
         foreach ($categories as $category) {
             Category::create($category);
         }
+
+        $this->command->info('✅ Categories seeded successfully!');
     }
 }

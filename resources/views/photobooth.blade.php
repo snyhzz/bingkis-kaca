@@ -110,13 +110,67 @@
             <!-- Right: Frame Selection & Actions with Character -->
             <div class="review-right">
                 <div class="review-right-content">
+                    <!-- 🔧 UPDATED: DYNAMIC FRAME PICKER WITH DEBUG -->
                     <div class="frame-picker">
                         <h3>Pick Your Photo Frame</h3>
-                        <div class="color-selector" id="colorSelector">
-                            <button class="color-btn active" data-color="brown" style="background: #6B4423;" title="Brown"></button>
-                            <button class="color-btn" data-color="cream" style="background: #CBA991;" title="Cream"></button>
-                            <button class="color-btn" data-color="white" style="background: #FFFFFF; border: 3px solid #522504;" title="White"></button>
-                        </div>
+                        
+                        @if(isset($framesByCount) && $framesByCount->isNotEmpty())
+                            {{-- DYNAMIC FRAMES FROM DATABASE --}}
+                            <div id="dynamicFrameSelector">
+                                @foreach($framesByCount as $photoCount => $frames)
+                                <div class="frame-group" 
+                                     data-photo-count="{{ $photoCount }}" 
+                                     style="{{ $photoCount != 4 ? 'display: none;' : '' }}">
+                                    
+                                    <div class="frames-grid">
+                                        @foreach($frames as $frame)
+                                        <div class="frame-option {{ $loop->first && $photoCount == 4 ? 'active' : '' }}" 
+                                             data-frame-id="{{ $frame->id }}"
+                                             data-frame-path="{{ Storage::url($frame->image_path) }}"
+                                             data-color="{{ $frame->color_code }}"
+                                             data-photo-count="{{ $frame->photo_count }}"
+                                             title="{{ $frame->name }}">
+                                            
+                                            <div class="frame-preview-thumb">
+                                                @if($frame->image_path && Storage::disk('public')->exists($frame->image_path))
+                                                    <img src="{{ Storage::url($frame->image_path) }}" 
+                                                         alt="{{ $frame->name }}"
+                                                         loading="lazy"
+                                                         onerror="console.error('❌ Frame load failed:', this.src); this.parentElement.innerHTML='<div class=\'frame-placeholder-thumb\' style=\'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.5rem;\'><span style=\'font-size:2rem;\'>❌</span><small style=\'font-size:0.7rem;color:#999;\'>Load Error</small></div>'">
+                                                @else
+                                                    <div class="frame-placeholder-thumb" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0.5rem;">
+                                                        <span style="font-size:2rem;">🖼️</span>
+                                                        <small style="font-size:0.7rem;color:#999;">Not Found</small>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            
+                                            <div class="frame-info">
+                                                <span class="frame-name">{{ Str::limit($frame->name, 15) }}</span>
+                                                <span class="frame-color-badge" 
+                                                      style="background: {{ $frame->color_code == 'brown' ? '#6B4423' : ($frame->color_code == 'cream' ? '#CBA991' : '#fff') }}; 
+                                                             color: {{ $frame->color_code == 'white' ? '#000' : '#fff' }}; 
+                                                             border: {{ $frame->color_code == 'white' ? '1px solid #ddd' : 'none' }};">
+                                                    {{ ucfirst($frame->color_code) }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                                @endforeach
+                            </div>
+                        @else
+                            {{-- FALLBACK: OLD COLOR SELECTOR SYSTEM --}}
+                            <div class="color-selector" id="colorSelector">
+                                <button class="color-btn active" data-color="brown" style="background: #6B4423;" title="Brown"></button>
+                                <button class="color-btn" data-color="cream" style="background: #CBA991;" title="Cream"></button>
+                                <button class="color-btn" data-color="white" style="background: #FFFFFF; border: 3px solid #522504;" title="White"></button>
+                            </div>
+                            <p class="text-center text-muted small mt-2">
+                                <i class="bi bi-info-circle"></i> Using default frames
+                            </p>
+                        @endif
                     </div>
 
                     <div class="review-actions">
@@ -188,6 +242,7 @@
 
 @push('styles')
 <style>
+/* ===== CSS SAMA DENGAN CODE LAMA ANDA - TIDAK ADA PERUBAHAN ===== */
 /* Photobooth Styles */
 .photobooth-page {
     background: linear-gradient(135deg, #CBA991 0%, #9D6B46 100%);
@@ -562,11 +617,9 @@
 
 .strip-canvas {
     display: block;
-    /* Ukuran disesuaikan dengan frame yang diunggah */
     width: auto;
     height: auto;
     max-width: 100%;
-    /* Tinggi maksimal agar tidak terlalu besar di layar */
     max-height: 70vh;
     border-radius: 8px;
     object-fit: contain;
@@ -592,6 +645,8 @@
     border-radius: 15px;
     padding: 1.75rem;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    max-height: 450px;
+    overflow-y: auto;
 }
 
 .frame-picker h3 {
@@ -602,6 +657,89 @@
     font-weight: 600;
 }
 
+/* NEW: Dynamic Frame Selector Styles */
+.frames-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.frame-option {
+    cursor: pointer;
+    border: 3px solid transparent;
+    border-radius: 10px;
+    padding: 0.5rem;
+    transition: all 0.3s ease;
+    background: #f8f9fa;
+}
+
+.frame-option:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.frame-option.active {
+    border-color: #522504;
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    box-shadow: 0 0 0 3px rgba(82, 37, 4, 0.2);
+    transform: scale(1.05);
+}
+
+.frame-preview-thumb {
+    width: 100%;
+    aspect-ratio: 2/3;
+    background: #e9ecef;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 0.4rem;
+}
+
+.frame-preview-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.frame-placeholder-thumb {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 1.5rem;
+    gap: 0.5rem;
+}
+
+.frame-info {
+    text-align: center;
+}
+
+.frame-name {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.25rem;
+    line-height: 1.2;
+}
+
+.frame-color-badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+.frame-group {
+    width: 100%;
+}
+
+/* OLD: Color Selector (Fallback) */
 .color-selector {
     display: flex;
     justify-content: center;
@@ -986,14 +1124,33 @@
     .retake-title {
         font-size: 1.3rem;
     }
+
+    .frames-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 @endpush
 
 @push('scripts')
 <script>
+// 🔧 UPDATED: Added better debugging
+console.log('Initializing PhotoBooth Application...');
+
 window.csrfToken = '{{ csrf_token() }}';
 window.isAuthenticated = {{ auth()->check() ? 'true' : 'false' }};
+
+// NEW: Pass frames data from database
+window.framesByCount = @json($framesByCount ?? collect());
+window.hasFramesInDB = {{ isset($framesByCount) && $framesByCount->isNotEmpty() ? 'true' : 'false' }};
+
+console.log('Frames loaded:', {
+    hasFramesInDB: window.hasFramesInDB,
+    frameCount: Object.keys(window.framesByCount).length,
+    frames: window.framesByCount
+});
+
+// OLD: Fallback untuk frame lama
 window.framesData = {
     frame2: {
         brown: '{{ asset("images/frames/frame2_brown.png") }}',
@@ -1012,19 +1169,21 @@ window.framesData = {
     }
 };
 
-
 let currentStripId = null;
 
-
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up event listeners...');
+    
     const saveBtn = document.getElementById('saveBtn');
     if (saveBtn) {
         saveBtn.addEventListener('click', saveStripToProfile);
+        console.log('Save button listener attached');
     }
 });
 
-
 function saveStripToProfile() {
+    console.log('Attempting to save strip:', currentStripId);
+    
     if (!currentStripId) {
         alert('Strip ID tidak ditemukan!');
         return;
@@ -1032,7 +1191,6 @@ function saveStripToProfile() {
 
     const saveBtn = document.getElementById('saveBtn');
     const originalText = saveBtn.innerHTML;
-    
     
     saveBtn.disabled = true;
     saveBtn.innerHTML = 'Menyimpan...';
@@ -1057,14 +1215,14 @@ function saveStripToProfile() {
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('❌ Terjadi kesalahan saat menyimpan.');
+        alert('Terjadi kesalahan saat menyimpan.');
         saveBtn.disabled = false;
         saveBtn.innerHTML = originalText;
     });
 }
 
-
 function showSaveButton(stripId) {
+    console.log('Showing save button for strip:', stripId);
     currentStripId = stripId;
     const saveBtn = document.getElementById('saveBtn');
     if (saveBtn && window.isAuthenticated) {

@@ -6,15 +6,13 @@ use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     */
     public function run(): void
     {
         $this->call([
             UserSeeder::class,
             CategorySeeder::class,
-            FrameSeeder::class,
+            DefaultFrameSeeder::class, // NEW: Seed default frames
+            FrameSeeder::class, // Optional: Keep for custom frames examples
         ]);
     }
 }

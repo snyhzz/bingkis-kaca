@@ -21,70 +21,104 @@ class FrameSeeder extends Seeder
         
         // Get categories
         $cuteCategory = Category::where('slug', 'cute')->first();
-        $minimalisCategory = Category::where('slug', 'minimalis')->first();
-        $formalCategory = Category::where('slug', 'formal')->first();
-        $coupleCategory = Category::where('slug', 'couple')->first();
+        $classicCategory = Category::where('slug', 'classic')->first();
+        $weddingCategory = Category::where('slug', 'wedding')->first();
+        $birthdayCategory = Category::where('slug', 'birthday')->first();
 
-        // Create sample frames
-        // NOTE: You need to create actual PNG frame files in storage/app/public/frames/
-        // For now, we'll create placeholder entries
-        
+        // Create sample frames with new structure
         $frames = [
+            // Brown frames
             [
-                'name' => 'Hearts Border',
-                'filename' => 'frame_hearts_border.png',
-                'category_id' => $cuteCategory->id,
+                'name' => 'Brown Classic 4 Photos',
+                'description' => 'Classic brown frame perfect for any occasion',
+                'category_id' => $classicCategory?->id,
+                'image_path' => 'frames/frame_brown_4_classic.png',
+                'color_code' => 'brown',
+                'photo_count' => 4,
                 'is_active' => true,
-                'uploaded_by' => $admin->id,
+                'uploaded_by' => $admin?->id,
+                'usage_count' => 0,
             ],
             [
-                'name' => 'Cute Stars',
-                'filename' => 'frame_cute_stars.png',
-                'category_id' => $cuteCategory->id,
+                'name' => 'Brown Hearts 4 Photos',
+                'description' => 'Cute brown frame with hearts border',
+                'category_id' => $cuteCategory?->id,
+                'image_path' => 'frames/frame_brown_4_hearts.png',
+                'color_code' => 'brown',
+                'photo_count' => 4,
                 'is_active' => true,
-                'uploaded_by' => $admin->id,
+                'uploaded_by' => $admin?->id,
+                'usage_count' => 0,
             ],
             [
-                'name' => 'Simple Black',
-                'filename' => 'frame_simple_black.png',
-                'category_id' => $minimalisCategory->id,
+                'name' => 'Brown Wedding 3 Photos',
+                'description' => 'Elegant brown frame for wedding moments',
+                'category_id' => $weddingCategory?->id,
+                'image_path' => 'frames/frame_brown_3_wedding.png',
+                'color_code' => 'brown',
+                'photo_count' => 3,
                 'is_active' => true,
-                'uploaded_by' => $admin->id,
+                'uploaded_by' => $admin?->id,
+                'usage_count' => 0,
+            ],
+
+            // Cream frames
+            [
+                'name' => 'Cream Elegant 4 Photos',
+                'description' => 'Soft cream frame with elegant design',
+                'category_id' => $weddingCategory?->id,
+                'image_path' => 'frames/frame_cream_4_elegant.png',
+                'color_code' => 'cream',
+                'photo_count' => 4,
+                'is_active' => true,
+                'uploaded_by' => $admin?->id,
+                'usage_count' => 0,
             ],
             [
-                'name' => 'Clean White',
-                'filename' => 'frame_clean_white.png',
-                'category_id' => $minimalisCategory->id,
+                'name' => 'Cream Birthday 4 Photos',
+                'description' => 'Fun cream frame for birthday celebrations',
+                'category_id' => $birthdayCategory?->id,
+                'image_path' => 'frames/frame_cream_4_birthday.png',
+                'color_code' => 'cream',
+                'photo_count' => 4,
                 'is_active' => true,
-                'uploaded_by' => $admin->id,
+                'uploaded_by' => $admin?->id,
+                'usage_count' => 0,
             ],
             [
-                'name' => 'Professional Gold',
-                'filename' => 'frame_professional_gold.png',
-                'category_id' => $formalCategory->id,
+                'name' => 'Cream Simple 2 Photos',
+                'description' => 'Minimalist cream frame for 2 photos',
+                'category_id' => $classicCategory?->id,
+                'image_path' => 'frames/frame_cream_2_simple.png',
+                'color_code' => 'cream',
+                'photo_count' => 2,
                 'is_active' => true,
-                'uploaded_by' => $admin->id,
+                'uploaded_by' => $admin?->id,
+                'usage_count' => 0,
+            ],
+
+            // White frames
+            [
+                'name' => 'White Clean 4 Photos',
+                'description' => 'Clean white frame with modern look',
+                'category_id' => $classicCategory?->id,
+                'image_path' => 'frames/frame_white_4_clean.png',
+                'color_code' => 'white',
+                'photo_count' => 4,
+                'is_active' => true,
+                'uploaded_by' => $admin?->id,
+                'usage_count' => 0,
             ],
             [
-                'name' => 'Classic Silver',
-                'filename' => 'frame_classic_silver.png',
-                'category_id' => $formalCategory->id,
+                'name' => 'White Minimalist 3 Photos',
+                'description' => 'Simple white frame for 3 photos',
+                'category_id' => $classicCategory?->id,
+                'image_path' => 'frames/frame_white_3_minimal.png',
+                'color_code' => 'white',
+                'photo_count' => 3,
                 'is_active' => true,
-                'uploaded_by' => $admin->id,
-            ],
-            [
-                'name' => 'Love Hearts',
-                'filename' => 'frame_love_hearts.png',
-                'category_id' => $coupleCategory->id,
-                'is_active' => true,
-                'uploaded_by' => $admin->id,
-            ],
-            [
-                'name' => 'Together Forever',
-                'filename' => 'frame_together_forever.png',
-                'category_id' => $coupleCategory->id,
-                'is_active' => true,
-                'uploaded_by' => $admin->id,
+                'uploaded_by' => $admin?->id,
+                'usage_count' => 0,
             ],
         ];
 
@@ -94,6 +128,9 @@ class FrameSeeder extends Seeder
 
         // Create placeholder PNG files
         $this->createPlaceholderFrames($frames);
+
+        $this->command->info('✅ Frames seeded successfully!');
+        $this->command->warn('⚠️  Placeholder frames created. Replace with real images via admin panel.');
     }
 
     /**
@@ -109,22 +146,30 @@ class FrameSeeder extends Seeder
         }
 
         foreach ($frames as $frame) {
-            $filePath = $storagePath . '/' . $frame['filename'];
+            $filename = basename($frame['image_path']);
+            $filePath = $storagePath . '/' . $filename;
             
             // Only create if doesn't exist
             if (!File::exists($filePath)) {
-                // Create a simple transparent PNG placeholder
-                // In production, replace these with actual frame images
-                $this->createTransparentPNG($filePath, 800, 600);
+                // Create frame based on photo count and color
+                $this->createFramePNG(
+                    $filePath, 
+                    $frame['color_code'],
+                    $frame['photo_count']
+                );
             }
         }
     }
 
     /**
-     * Create a transparent PNG placeholder
+     * Create a frame PNG with color and layout
      */
-    private function createTransparentPNG($filePath, $width, $height)
+    private function createFramePNG($filePath, $colorCode, $photoCount)
     {
+        // Frame dimensions (4R photo size: 1200x1800px portrait)
+        $width = 1200;
+        $height = 1800;
+        
         // Create image
         $image = imagecreatetruecolor($width, $height);
         
@@ -136,21 +181,57 @@ class FrameSeeder extends Seeder
         $transparent = imagecolorallocatealpha($image, 0, 0, 0, 127);
         imagefill($image, 0, 0, $transparent);
         
-        // Draw a simple border as frame
-        $brown = imagecolorallocate($image, 82, 37, 4); // #522504
-        $borderWidth = 20;
+        // Get color based on color code
+        $frameColor = $this->getFrameColor($image, $colorCode);
         
-        // Top border
-        imagefilledrectangle($image, 0, 0, $width, $borderWidth, $brown);
-        // Bottom border
-        imagefilledrectangle($image, 0, $height - $borderWidth, $width, $height, $brown);
-        // Left border
-        imagefilledrectangle($image, 0, 0, $borderWidth, $height, $brown);
-        // Right border
-        imagefilledrectangle($image, $width - $borderWidth, 0, $width, $height, $brown);
+        // Border width
+        $borderWidth = 40;
+        $innerBorderWidth = 10;
+        
+        // Outer border
+        imagefilledrectangle($image, 0, 0, $width, $borderWidth, $frameColor);
+        imagefilledrectangle($image, 0, $height - $borderWidth, $width, $height, $frameColor);
+        imagefilledrectangle($image, 0, 0, $borderWidth, $height, $frameColor);
+        imagefilledrectangle($image, $width - $borderWidth, 0, $width, $height, $frameColor);
+        
+        // Calculate photo positions based on count
+        $photoHeight = ($height - ($borderWidth * 2) - ($innerBorderWidth * ($photoCount - 1))) / $photoCount;
+        
+        for ($i = 0; $i < $photoCount; $i++) {
+            $y = $borderWidth + ($photoHeight * $i) + ($innerBorderWidth * $i);
+            
+            // Draw divider between photos
+            if ($i > 0) {
+                imagefilledrectangle(
+                    $image, 
+                    $borderWidth, 
+                    $y - $innerBorderWidth, 
+                    $width - $borderWidth, 
+                    $y, 
+                    $frameColor
+                );
+            }
+        }
         
         // Save as PNG
         imagepng($image, $filePath);
         imagedestroy($image);
+    }
+
+    /**
+     * Get frame color based on color code
+     */
+    private function getFrameColor($image, $colorCode)
+    {
+        switch ($colorCode) {
+            case 'brown':
+                return imagecolorallocate($image, 82, 37, 4); // #522504
+            case 'cream':
+                return imagecolorallocate($image, 203, 169, 145); // #CBA991
+            case 'white':
+                return imagecolorallocate($image, 255, 255, 255); // #FFFFFF
+            default:
+                return imagecolorallocate($image, 82, 37, 4);
+        }
     }
 }

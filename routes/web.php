@@ -65,13 +65,15 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::post('/users/{user}/toggle-block', [AdminUserController::class, 'toggleBlock'])->name('users.toggle-block');
     Route::delete('/users/{user}', [AdminUserController::class, 'destroy'])->name('users.destroy');
 
-    // Frames Management
-    Route::resource('frames', AdminFrameController::class);
-    Route::post('/frames/{frame}/toggle', [AdminFrameController::class, 'toggle'])->name('frames.toggle');
-
     // Categories Management
-    Route::resource('categories', CategoryController::class);
+    Route::resource('categories', CategoryController::class)->except(['show']);
     Route::post('/categories/{category}/toggle', [CategoryController::class, 'toggle'])->name('categories.toggle');
+
+    // Frames Management
+    Route::resource('frames', AdminFrameController::class)->except(['show']);
+    Route::post('/frames/{frame}/toggle', [AdminFrameController::class, 'toggle'])->name('frames.toggle');
+    Route::post('/frames/restore-defaults', [AdminFrameController::class, 'restoreDefaults'])->name('frames.restore-defaults'); // NEW ROUTE
+    Route::delete('/frames/{frame}/force', [AdminFrameController::class, 'forceDestroy'])->name('frames.force-destroy'); // Optional
 
     // Photos Moderation
     Route::get('/photos', [AdminPhotoController::class, 'index'])->name('photos.index');
@@ -85,6 +87,20 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::delete('/photo-strips/{photoStrip}', [AdminPhotoStripController::class, 'destroy'])->name('photo-strips.destroy');
 });
 
+
+// Add temporary debug route (remove after debugging)
+Route::get('/debug/frame/{frame}', function (App\Models\Frame $frame) {
+    return [
+        'frame' => $frame,
+        'is_default' => $frame->is_default,
+        'photo_strips_count' => $frame->photoStrips()->count(),
+        'can_delete' => !$frame->is_default && $frame->photoStrips()->count() === 0,
+        'image_exists' => Storage::disk('public')->exists($frame->image_path),
+        'image_path' => $frame->image_path,
+        'full_path' => storage_path('app/public/' . $frame->image_path),
+    ];
+})->middleware(['auth', 'admin']);
+
 /*
 |--------------------------------------------------------------------------
 | Auth Routes (Laravel Breeze)
@@ -92,17 +108,3 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
 */
 
 require __DIR__.'/auth.php';
-
-/*
-|--------------------------------------------------------------------------
-| Rate Limiting (Optional - Uncomment if needed)
-|--------------------------------------------------------------------------
-*/
-
-// Route::post('/photobooth/upload', [PhotoboothController::class, 'uploadPhoto'])
-//     ->middleware('throttle:10,1') // 10 requests per minute
-//     ->name('photobooth.upload');
-
-// Route::post('/photobooth/compose', [PhotoboothController::class, 'composeStrip'])
-//     ->middleware('throttle:5,1') // 5 requests per minute
-//     ->name('photobooth.compose');

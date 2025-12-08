@@ -2,29 +2,45 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Category;
 use App\Models\Frame;
 use App\Models\Photo;
 use App\Models\PhotoStrip;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Intervention\Image\Laravel\Facades\Image;
+use Illuminate\Support\Facades\Log;
 
 class PhotoboothController extends Controller
 {
+    /**
+     * Display the photobooth interface with all active frames
+     */
     public function index()
     {
-        $categories = Category::where('is_active', true)
-            ->with(['activeFrames' => function ($query) {
-                $query->orderBy('name');
-            }])
-            ->orderBy('name')
+        // Get ALL active frames (both default and custom)
+        $frames = Frame::where('is_active', true)
+            ->with('category')
+            ->orderBy('is_default', 'desc') // Default frames first
+            ->orderBy('photo_count', 'asc')
+            ->orderBy('color_code', 'asc')
+            ->orderBy('name', 'asc')
             ->get();
 
-        return view('photobooth', compact('categories'));
+        $framesByCount = $frames->groupBy('photo_count');
+
+        Log::info('Photobooth loaded', [
+            'total_active_frames' => $frames->count(),
+            'frames_by_count' => $framesByCount->map->count()->toArray(),
+            'default_frames' => $frames->where('is_default', true)->count(),
+            'custom_frames' => $frames->where('is_default', false)->count(),
+        ]);
+
+        return view('photobooth', compact('framesByCount'));
     }
 
+    /**
+     * Upload photo from webcam/file
+     */
     public function uploadPhoto(Request $request)
     {
         $request->validate([
@@ -32,13 +48,12 @@ class PhotoboothController extends Controller
         ]);
 
         try {
-            // Decode base64 image
             $imageData = $request->input('photo');
             
-            // Remove data:image/png;base64, prefix if exists
+            // Extract image type from base64 string
             if (preg_match('/^data:image\/(\w+);base64,/', $imageData, $type)) {
                 $imageData = substr($imageData, strpos($imageData, ',') + 1);
-                $type = strtolower($type[1]); // jpg, png, gif
+                $type = strtolower($type[1]);
             } else {
                 return response()->json(['error' => 'Invalid image format'], 400);
             }
@@ -52,17 +67,27 @@ class PhotoboothController extends Controller
 
             // Generate unique filename
             $filename = 'photo_' . time() . '_' . Str::random(10) . '.' . $type;
-
+            
+            // Ensure photos directory exists
+            if (!Storage::disk('public')->exists('photos')) {
+                Storage::disk('public')->makeDirectory('photos');
+            }
+            
             // Save to storage
             Storage::disk('public')->put('photos/' . $filename, $imageData);
 
-            // Save to database
+            // Create photo record
             $photo = Photo::create([
                 'user_id' => auth()->id(),
                 'filename' => $filename,
                 'original_filename' => $filename,
                 'status' => 'pending',
                 'ip_address' => $request->ip(),
+            ]);
+
+            Log::info('Photo uploaded', [
+                'photo_id' => $photo->id,
+                'filename' => $filename,
             ]);
 
             return response()->json([
@@ -73,17 +98,24 @@ class PhotoboothController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Error uploading photo', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json(['error' => $e->getMessage()], 500);
         }
     }
 
+    /**
+     * Compose photo strip with selected frame
+     */
     public function composeStrip(Request $request)
     {
         $request->validate([
-            'photos' => 'required|array|min:1|max:4',
-            'photos.*' => 'required|string', // base64 or filename
+            'photos' => 'required|array|min:1',
+            'photos.*' => 'required|string',
             'frame_id' => 'nullable|exists:frames,id',
-            'photo_count' => 'required|integer|min:2|max:4',
+            'photo_count' => 'required|integer|in:2,3,4',
         ]);
 
         try {
@@ -91,42 +123,83 @@ class PhotoboothController extends Controller
             $frameId = $request->input('frame_id');
             $photoCount = $request->input('photo_count');
 
-            // PERBAIKAN: Jika hanya 1 foto (sudah final canvas dari frontend), langsung simpan
+            // Validate frame if provided
+            if ($frameId) {
+                $frame = Frame::where('id', $frameId)
+                    ->where('is_active', true)
+                    ->first();
+
+                if (!$frame) {
+                    return response()->json([
+                        'error' => 'Selected frame is not available.'
+                    ], 400);
+                }
+
+                Log::info('Using frame', [
+                    'frame_id' => $frame->id,
+                    'frame_name' => $frame->name,
+                    'is_default' => $frame->is_default,
+                ]);
+            }
+
+            // Final canvas from frontend (already includes frame overlay)
             if (count($photos) === 1 && strpos($photos[0], 'data:image') === 0) {
-                // Ini adalah final canvas yang sudah termasuk frame dari frontend
                 $imageData = $photos[0];
                 
-                // Remove data:image/png;base64, prefix if exists
+                // Extract and decode
                 if (preg_match('/^data:image\/(\w+);base64,/', $imageData, $type)) {
                     $imageData = substr($imageData, strpos($imageData, ',') + 1);
-                    $type = strtolower($type[1]);
                 } else {
                     return response()->json(['error' => 'Invalid image format'], 400);
                 }
                 
-                // Decode base64
                 $imageData = base64_decode($imageData);
                 
                 if ($imageData === false) {
                     return response()->json(['error' => 'Base64 decode failed'], 400);
                 }
 
-                // Generate unique filename for strip
+                // Generate unique strip filename
                 $stripFilename = 'strip_' . time() . '_' . Str::random(10) . '.png';
                 $stripPath = 'strips/' . $stripFilename;
 
-                // Save strip to storage
-                Storage::disk('public')->put($stripPath, $imageData);
+                // Ensure strips directory exists
+                if (!Storage::disk('public')->exists('strips')) {
+                    Storage::disk('public')->makeDirectory('strips');
+                }
 
-                // Save to database
+                // Save strip image
+                $saved = Storage::disk('public')->put($stripPath, $imageData);
+
+                if (!$saved) {
+                    throw new \Exception('Failed to save strip image');
+                }
+
+                // Increment frame usage if frame is used
+                if ($frameId && isset($frame)) {
+                    $frame->increment('usage_count');
+                    Log::info('Frame usage incremented', [
+                        'frame_id' => $frame->id,
+                        'new_usage_count' => $frame->usage_count,
+                    ]);
+                }
+
+                // Create photo strip record
                 $photoStrip = PhotoStrip::create([
                     'user_id' => auth()->id(),
                     'frame_id' => $frameId,
-                    'photo_data' => ['final_canvas'], // Marker bahwa ini final canvas
+                    'photo_data' => ['final_canvas'],
                     'final_image_path' => $stripPath,
                     'photo_count' => $photoCount,
                     'ip_address' => $request->ip(),
-                    'is_saved' => false, // Default belum disimpan
+                    'is_saved' => false,
+                ]);
+
+                Log::info('Photo strip created successfully', [
+                    'strip_id' => $photoStrip->id,
+                    'frame_id' => $frameId,
+                    'photo_count' => $photoCount,
+                    'user_id' => auth()->id(),
                 ]);
 
                 return response()->json([
@@ -138,100 +211,27 @@ class PhotoboothController extends Controller
                 ]);
             }
 
-            // FALLBACK: Proses multiple photos seperti biasa (jika diperlukan)
-            // Load frame if provided
-            $frame = null;
-            $frameImage = null;
-            if ($frameId) {
-                $frame = Frame::findOrFail($frameId);
-                $frameImage = Image::read(storage_path('app/public/frames/' . $frame->filename));
-                
-                // Increment frame usage count
-                $frame->incrementUsage();
-            }
-
-            // Strip dimensions (portrait orientation for photobooth)
-            $photoWidth = 800;
-            $photoHeight = 600;
-            $stripWidth = $photoWidth;
-            $stripHeight = $photoHeight * $photoCount;
-
-            // Create blank canvas
-            $strip = Image::create($stripWidth, $stripHeight)
-                ->fill('ffffff');
-
-            // Process each photo
-            foreach ($photos as $index => $photoData) {
-                // Decode base64 if needed
-                if (preg_match('/^data:image\/(\w+);base64,/', $photoData)) {
-                    $photoData = substr($photoData, strpos($photoData, ',') + 1);
-                    $photoData = base64_decode($photoData);
-                    $photoImage = Image::read($photoData);
-                } else {
-                    // Assume it's a filename
-                    $photoPath = storage_path('app/public/photos/' . $photoData);
-                    if (!file_exists($photoPath)) {
-                        return response()->json(['error' => 'Photo file not found: ' . $photoData], 404);
-                    }
-                    $photoImage = Image::read($photoPath);
-                }
-
-                // Resize photo to fit
-                $photoImage->cover($photoWidth, $photoHeight);
-
-                // Calculate position (vertical stacking)
-                $yPosition = $index * $photoHeight;
-
-                // Place photo on strip
-                $strip->place($photoImage, 'top-left', 0, $yPosition);
-
-                // Overlay frame if exists
-                if ($frameImage) {
-                    $frameResized = clone $frameImage;
-                    $frameResized->resize($photoWidth, $photoHeight);
-                    $strip->place($frameResized, 'top-left', 0, $yPosition);
-                }
-            }
-
-            // Generate unique filename for strip
-            $stripFilename = 'strip_' . time() . '_' . Str::random(10) . '.png';
-            $stripPath = 'strips/' . $stripFilename;
-
-            // Save strip
-            Storage::disk('public')->put($stripPath, $strip->toPng());
-
-            // Save to database
-            $photoStrip = PhotoStrip::create([
-                'user_id' => auth()->id(),
-                'frame_id' => $frameId,
-                'photo_data' => $photos,
-                'final_image_path' => $stripPath,
-                'photo_count' => $photoCount,
-                'ip_address' => $request->ip(),
-                'is_saved' => false,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'strip_url' => Storage::url($stripPath),
-                'strip_id' => $photoStrip->id,
-                'download_url' => route('photobooth.download', $photoStrip->id),
-                'is_authenticated' => auth()->check(),
-            ]);
+            // Fallback for invalid data
+            Log::warning('Invalid photo data format received');
+            return response()->json(['error' => 'Invalid photo data format'], 400);
 
         } catch (\Exception $e) {
-            \Log::error('Error composing strip: ' . $e->getMessage());
-            \Log::error($e->getTraceAsString());
-            return response()->json(['error' => $e->getMessage()], 500);
+            Log::error('Error composing strip', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 
     /**
-     * Simpan photo strip ke profil user (set is_saved = true)
+     * Save strip to user profile
      */
     public function saveStrip(Request $request, $id)
     {
-        // Pastikan user sudah login
         if (!auth()->check()) {
             return response()->json([
                 'success' => false,
@@ -242,10 +242,23 @@ class PhotoboothController extends Controller
         try {
             $strip = PhotoStrip::findOrFail($id);
             
-            // Update user_id dan is_saved
+            // Check ownership
+            if ($strip->user_id && $strip->user_id !== auth()->id()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access.'
+                ], 403);
+            }
+
+            // Update strip
             $strip->update([
                 'user_id' => auth()->id(),
                 'is_saved' => true,
+            ]);
+
+            Log::info('Photo strip saved to user profile', [
+                'strip_id' => $id,
+                'user_id' => auth()->id(),
             ]);
 
             return response()->json([
@@ -259,7 +272,10 @@ class PhotoboothController extends Controller
                 'message' => 'Photo strip tidak ditemukan.'
             ], 404);
         } catch (\Exception $e) {
-            \Log::error('Error saving strip: ' . $e->getMessage());
+            Log::error('Error saving strip', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Terjadi kesalahan: ' . $e->getMessage()
@@ -267,33 +283,43 @@ class PhotoboothController extends Controller
         }
     }
 
+    /**
+     * Download photo strip
+     */
     public function download($id)
     {
         try {
             $strip = PhotoStrip::findOrFail($id);
 
-            // Check authorization (optional - allow public download or restrict to owner)
-            // Uncomment jika ingin restrict hanya owner yang bisa download
-            // if ($strip->user_id && $strip->user_id !== auth()->id()) {
-            //     abort(403, 'Unauthorized access');
-            // }
-
             $filePath = storage_path('app/public/' . $strip->final_image_path);
 
             if (!file_exists($filePath)) {
+                Log::error('Strip file not found', [
+                    'strip_id' => $id,
+                    'path' => $filePath,
+                ]);
                 abort(404, 'File not found');
             }
 
             $filename = 'bingkiskaca_' . $strip->id . '_' . time() . '.png';
+
+            Log::info('Photo strip downloaded', [
+                'strip_id' => $id,
+                'user_id' => auth()->id(),
+                'filename' => $filename,
+            ]);
 
             return response()->download($filePath, $filename, [
                 'Content-Type' => 'image/png',
             ]);
 
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            Log::error('Photo strip not found for download: ' . $id);
             abort(404, 'Photo strip not found');
         } catch (\Exception $e) {
-            \Log::error('Error downloading strip: ' . $e->getMessage());
+            Log::error('Error downloading strip', [
+                'error' => $e->getMessage(),
+            ]);
             abort(500, 'Error downloading file');
         }
     }

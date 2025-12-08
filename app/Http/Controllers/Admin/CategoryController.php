@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
@@ -39,6 +40,8 @@ class CategoryController extends Controller
             'is_active' => 'boolean',
         ]);
 
+        // Auto-generate slug from name
+        $validated['slug'] = Str::slug($validated['name']);
         $validated['is_active'] = $request->has('is_active');
 
         Category::create($validated);
@@ -65,6 +68,11 @@ class CategoryController extends Controller
             'description' => 'nullable|string',
             'is_active' => 'boolean',
         ]);
+
+        // Update slug if name changed
+        if ($validated['name'] !== $category->name) {
+            $validated['slug'] = Str::slug($validated['name']);
+        }
 
         $validated['is_active'] = $request->has('is_active');
 

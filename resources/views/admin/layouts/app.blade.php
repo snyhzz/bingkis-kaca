@@ -51,6 +51,39 @@
             text-align: center;
             margin-right: 10px;
         }
+        /* ✅ Logo Styling */
+        .sidebar-logo {
+            max-width: 150px;
+            max-height: 60px;
+            height: auto;
+            width: auto;
+            display: block;
+            margin: 0 auto 10px auto;
+            filter: brightness(1.1); /* Buat logo lebih cerah di background gelap */
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-logo:hover {
+            transform: scale(1.05);
+            filter: brightness(1.2);
+        }
+
+        /* Jika logo punya background putih */
+        .sidebar-logo.with-bg {
+            background: white;
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .sidebar-logo {
+                max-width: 120px;
+                max-height: 50px;
+            }
+        }
+
 
         .card {
             border: none;
@@ -141,13 +174,21 @@
 <body>
     <div class="container-fluid">
         <div class="row">
-            <!-- Sidebar -->
+           <!-- Sidebar -->
             <nav class="col-md-2 d-md-block sidebar p-0">
                 <div class="position-sticky">
                     <div class="sidebar-brand">
-                        <h4>bingkis<span style="color: var(--light)">kaca.</span></h4>
+                        {{-- ✅ Logo dengan fallback --}}
+                        @if(file_exists(public_path('images/logo_bingkis_kaca.png')))
+                            <img src="{{ asset('images/logo_bingkis_kaca.png') }}" 
+                                alt="Bingkis Kaca" 
+                                class="sidebar-logo">
+                        @else
+                            <h4>bingkis<span style="color: var(--light)">kaca.</span></h4>
+                        @endif
                         <small>Admin Panel</small>
                     </div>
+
                     
                     <ul class="nav flex-column">
                         <li class="nav-item">
